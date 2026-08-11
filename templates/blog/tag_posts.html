@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}标签：{{ tag.name }} · Rainzk{% endblock %}
+
+{% block content %}
+<header class="page-heading">
+    <p class="eyebrow">标签</p>
+    <h1>#{{ tag.name }}</h1>
+</header>
+<div class="post-list">
+    {% for post in page_obj %}
+        {% include "blog/includes/post_item.html" %}
+    {% empty %}
+        <p class="empty-state">这个标签下暂时没有公开文章。</p>
+    {% endfor %}
+</div>
+{% include "blog/includes/pagination.html" %}
+{% endblock %}

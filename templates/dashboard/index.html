@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}写作台 · Rainzk{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+    <header class="dashboard-header">
+        <div>
+            <p class="eyebrow">内容管理</p>
+            <h1>写作台</h1>
+        </div>
+        <div class="button-group">
+            <a class="button" href="{% url 'blog:comment_moderation' %}">审核评论</a>
+            <a class="button button-primary" href="{% url 'blog:dashboard_post_create' %}">写新文章</a>
+        </div>
+    </header>
+
+    <div class="dashboard-stats">
+        <div><strong>{{ statistics.total }}</strong><span>全部文章</span></div>
+        <div><strong>{{ statistics.published }}</strong><span>已发布</span></div>
+        <div><strong>{{ statistics.drafts }}</strong><span>草稿</span></div>
+        <div><strong>{{ statistics.pending_comments }}</strong><span>待审评论</span></div>
+    </div>
+
+    <div class="dashboard-links">
+        <a href="{% url 'admin:blog_category_changelist' %}">管理分类</a>
+        <a href="{% url 'admin:blog_tag_changelist' %}">管理标签</a>
+        <a href="{% url 'admin:index' %}">进入 Django Admin</a>
+    </div>
+
+    <form class="filter-form" method="get">
+        <input type="search" name="q" value="{{ keyword }}" placeholder="搜索标题或摘要" aria-label="搜索文章">
+        <select name="status" aria-label="文章状态">
+            <option value="">全部状态</option>
+            {% for value, label in status_choices %}<option value="{{ value }}"{% if selected_status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <select name="visibility" aria-label="文章可见性">
+            <option value="">全部可见性</option>
+            {% for value, label in visibility_choices %}<option value="{{ value }}"{% if selected_visibility == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button class="button" type="submit">筛选</button>
+        {% if keyword or selected_status or selected_visibility %}<a href="{% url 'blog:dashboard' %}">清除</a>{% endif %}
+    </form>
+
+    <div class="table-wrap">
+        <table class="content-table">
+            <thead>
+                <tr><th>文章</th><th>状态</th><th>可见性</th><th>更新时间</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+                {% for post in page_obj %}
+                <tr>
+                    <td>
+                        <a class="table-title" href="{{ post.get_absolute_url }}">{{ post.title }}</a>
+                        {% if post.category %}<small>{{ post.category.name }}</small>{% endif %}
+                    </td>
+                    <td>{{ post.get_status_display }}</td>
+                    <td>{{ post.get_visibility_display }}</td>
+                    <td>{{ post.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <div class="table-actions">
+                            <a href="{% url 'blog:dashboard_post_update' post.pk %}">编辑</a>
+                            <form method="post" action="{% url 'blog:dashboard_post_status' post.pk %}">
+                                {% csrf_token %}
+                                {% if post.status == "published" %}
+                                    <input type="hidden" name="status" value="draft">
+                                    <button type="submit">转为草稿</button>
+                                {% else %}
+                                    <input type="hidden" name="status" value="published">
+                                    <button type="submit">发布</button>
+                                {% endif %}
+                            </form>
+                            <a class="danger-link" href="{% url 'blog:dashboard_post_delete' post.pk %}">删除</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="empty-cell">没有符合条件的文章。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "blog/includes/pagination.html" %}
+</section>
+{% endblock %}

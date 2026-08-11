@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}管理员登录 · Rainzk{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <p class="eyebrow">写作入口</p>
+    <h1>管理员登录</h1>
+    <p class="form-intro">登录后可以写作、管理文章和审核评论。</p>
+    <form class="site-form" method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="field-group">
+            <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            {{ form.username }}
+            {{ form.username.errors }}
+        </div>
+        <div class="field-group">
+            <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+            {{ form.password }}
+            {{ form.password.errors }}
+        </div>
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <button class="button button-primary" type="submit">登录</button>
+    </form>
+</section>
+{% endblock %}

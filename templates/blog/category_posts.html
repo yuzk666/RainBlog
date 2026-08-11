@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}分类：{{ category.name }} · Rainzk{% endblock %}
+
+{% block content %}
+<header class="page-heading">
+    <p class="eyebrow">分类</p>
+    <h1>{{ category.name }}</h1>
+</header>
+<div class="post-list">
+    {% for post in page_obj %}
+        {% include "blog/includes/post_item.html" %}
+    {% empty %}
+        <p class="empty-state">这个分类下暂时没有公开文章。</p>
+    {% endfor %}
+</div>
+{% include "blog/includes/pagination.html" %}
+{% endblock %}

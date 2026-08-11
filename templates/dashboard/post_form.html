@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == "create" %}写新文章{% else %}编辑文章{% endif %} · Rainzk{% endblock %}
+
+{% block content %}
+<section class="editor-page">
+    <header class="dashboard-header">
+        <div>
+            <p class="eyebrow">写作台</p>
+            <h1>{% if mode == "create" %}写新文章{% else %}编辑文章{% endif %}</h1>
+        </div>
+        <a href="{% url 'blog:dashboard' %}">返回文章管理</a>
+    </header>
+
+    <form class="site-form editor-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="field-group field-wide">
+            <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+            {{ form.title }}{{ form.title.errors }}
+        </div>
+        <div class="field-group">
+            <label for="{{ form.slug.id_for_label }}">{{ form.slug.label }}</label>
+            {{ form.slug }}{% if form.slug.help_text %}<p class="help-text">{{ form.slug.help_text }}</p>{% endif %}{{ form.slug.errors }}
+        </div>
+        <div class="field-group">
+            <label for="{{ form.summary.id_for_label }}">{{ form.summary.label }}</label>
+            {{ form.summary }}{{ form.summary.errors }}
+        </div>
+        <div class="field-group field-wide">
+            <label for="{{ form.content.id_for_label }}">{{ form.content.label }}</label>
+            {{ form.content }}{% if form.content.help_text %}<p class="help-text">{{ form.content.help_text }}</p>{% endif %}{{ form.content.errors }}
+        </div>
+
+        <div class="form-grid">
+            <div class="field-group">
+                <label for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
+                {{ form.category }}{{ form.category.errors }}
+            </div>
+            <div class="field-group">
+                <label for="{{ form.tags.id_for_label }}">{{ form.tags.label }}</label>
+                {{ form.tags }}{% if form.tags.help_text %}<p class="help-text">{{ form.tags.help_text }}</p>{% endif %}{{ form.tags.errors }}
+            </div>
+            <div class="field-group">
+                <label for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+                {{ form.status }}{{ form.status.errors }}
+            </div>
+            <div class="field-group">
+                <label for="{{ form.visibility.id_for_label }}">{{ form.visibility.label }}</label>
+                {{ form.visibility }}{{ form.visibility.errors }}
+            </div>
+            <div class="field-group">
+                <label for="{{ form.published_at.id_for_label }}">{{ form.published_at.label }}</label>
+                {{ form.published_at }}{% if form.published_at.help_text %}<p class="help-text">{{ form.published_at.help_text }}</p>{% endif %}{{ form.published_at.errors }}
+            </div>
+            <div class="field-group">
+                <label for="{{ form.cover.id_for_label }}">{{ form.cover.label }}</label>
+                {{ form.cover }}{% if form.cover.help_text %}<p class="help-text">{{ form.cover.help_text }}</p>{% endif %}{{ form.cover.errors }}
+            </div>
+        </div>
+
+        <div class="button-group form-actions">
+            <button class="button button-primary" type="submit">保存文章</button>
+            {% if post %}<a class="button" href="{{ post.get_absolute_url }}">取消并查看文章</a>{% else %}<a class="button" href="{% url 'blog:dashboard' %}">取消</a>{% endif %}
+        </div>
+    </form>
+</section>
+{% endblock %}

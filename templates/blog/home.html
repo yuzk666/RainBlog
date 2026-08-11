@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="intro">
+    <p class="eyebrow">个人博客</p>
+    <h1>Rainzk</h1>
+    <p class="intro-text">记录一些生活、思考和偶尔冒出来的想法。</p>
+</section>
+
+<section class="post-section" aria-labelledby="recent-posts">
+    <div class="section-heading">
+        <h2 id="recent-posts">最近文章</h2>
+        <a href="{% url 'blog:post_list' %}">查看全部</a>
+    </div>
+    <div class="post-list">
+        {% for post in posts %}
+            {% include "blog/includes/post_item.html" %}
+        {% empty %}
+            <p class="empty-state">这里还很安静。第一篇文章正在路上。</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

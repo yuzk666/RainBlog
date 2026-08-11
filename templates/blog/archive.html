@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}归档 · Rainzk{% endblock %}
+
+{% block content %}
+<header class="page-heading">
+    <h1>归档</h1>
+    <p>按时间收好曾经写下的文字。</p>
+</header>
+<div class="archive">
+    {% for year in archive_years %}
+    <section class="archive-year">
+        <h2>{{ year.year }}</h2>
+        {% for month in year.months %}
+        <div class="archive-month">
+            <h3>{{ month.date|date:"F" }}</h3>
+            <ul>
+                {% for post in month.posts %}
+                <li>
+                    <time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:"m-d" }}</time>
+                    <a href="{{ post.get_absolute_url }}">{{ post.title }}</a>
+                    {% if request.user.is_staff and post.visibility == "private" %}<span class="status-label">私密</span>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </section>
+    {% empty %}
+        <p class="empty-state">还没有可以归档的文章。</p>
+    {% endfor %}
+</div>
+{% endblock %}

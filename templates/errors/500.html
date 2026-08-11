@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}暂时无法访问 · Rainzk{% endblock %}
+
+{% block content %}
+<section class="error-page">
+    <p class="error-code">500</p>
+    <h1>网站暂时遇到了一点问题。</h1>
+    <p>请稍后再回来看看。</p>
+    <a href="{% url 'blog:home' %}">回到首页</a>
+</section>
+{% endblock %}

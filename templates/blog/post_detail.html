@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load markdown_extras %}
+
+{% block title %}{{ post.title }} · Rainzk{% endblock %}
+
+{% block content %}
+<article class="article">
+    <header class="article-header">
+        <h1>{{ post.title }}</h1>
+        <div class="article-meta">
+            {% if post.published_at %}<time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:"Y年m月d日" }}</time>{% else %}<span>尚未发布</span>{% endif %}
+            <span>更新于 {{ post.updated_at|date:"Y年m月d日" }}</span>
+            {% if post.category %}<a href="{{ post.category.get_absolute_url }}">{{ post.category.name }}</a>{% endif %}
+            {% if request.user.is_staff and post.status == "draft" %}<span class="status-label">草稿预览</span>{% endif %}
+            {% if request.user.is_staff and post.visibility == "private" %}<span class="status-label">私密文章</span>{% endif %}
+        </div>
+        {% if post.tags.exists %}
+        <div class="tag-list">
+            {% for tag in post.tags.all %}<a href="{{ tag.get_absolute_url }}">#{{ tag.name }}</a>{% endfor %}
+        </div>
+        {% endif %}
+        {% if request.user.is_staff %}
+        <p class="article-admin-link"><a href="{% url 'blog:dashboard_post_update' post.pk %}">编辑这篇文章</a></p>
+        {% endif %}
+    </header>
+
+    {% if post.cover %}<img class="article-cover" src="{{ post.cover.url }}" alt="{{ post.title }}的封面">{% endif %}
+    <div class="prose">{{ post.content|markdown }}</div>
+</article>
+
+<section class="comments" id="comments" aria-labelledby="comments-heading">
+    <header class="comments-heading">
+        <h2 id="comments-heading">评论</h2>
+        <span>{{ approved_comments|length }} 条</span>
+    </header>
+
+    <div class="comment-list">
+        {% for comment in approved_comments %}
+        <article class="comment">
+            <header>
+                <strong>{{ comment.name }}</strong>
+                <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at|date:"Y-m-d H:i" }}</time>
+            </header>
+            <div class="comment-content">{{ comment.content|linebreaksbr }}</div>
+        </article>
+        {% empty %}
+            <p class="empty-state">还没有公开评论，欢迎留下第一句话。</p>
+        {% endfor %}
+    </div>
+
+    {% if post.is_publicly_visible %}
+    <div class="comment-form-wrap">
+        <h3>留下评论</h3>
+        <p class="form-intro">评论提交后需要审核。邮箱只用于管理，不会公开展示。</p>
+        <form class="site-form" method="post" action="{% url 'blog:add_comment' post.slug %}">
+            {% csrf_token %}
+            {{ comment_form.website }}
+            {{ comment_form.non_field_errors }}
+            <div class="form-row form-row-split">
+                <div class="field-group">
+                    <label for="{{ comment_form.name.id_for_label }}">{{ comment_form.name.label }}</label>
+                    {{ comment_form.name }}
+                    {{ comment_form.name.errors }}
+                </div>
+                <div class="field-group">
+                    <label for="{{ comment_form.email.id_for_label }}">{{ comment_form.email.label }}</label>
+                    {{ comment_form.email }}
+                    {{ comment_form.email.errors }}
+                </div>
+            </div>
+            <div class="field-group">
+                <label for="{{ comment_form.content.id_for_label }}">{{ comment_form.content.label }}</label>
+                {{ comment_form.content }}
+                {{ comment_form.content.errors }}
+            </div>
+            <button class="button button-primary" type="submit">提交评论</button>
+        </form>
+    </div>
+    {% elif request.user.is_staff %}
+        <p class="form-intro">草稿、私密文章或定时文章暂不接受访客评论。</p>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}页面未找到 · Rainzk{% endblock %}
+
+{% block content %}
+<section class="error-page">
+    <p class="error-code">404</p>
+    <h1>这里没有找到你要的页面。</h1>
+    <p>它可能被移动、尚未发布，或者从未存在过。</p>
+    <a href="{% url 'blog:home' %}">回到首页</a>
+</section>
+{% endblock %}

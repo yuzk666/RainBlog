@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}评论审核 · Rainzk{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+    <header class="dashboard-header">
+        <div>
+            <p class="eyebrow">内容管理</p>
+            <h1>评论审核</h1>
+        </div>
+        <a class="button" href="{% url 'blog:dashboard' %}">返回写作台</a>
+    </header>
+
+    <nav class="status-tabs" aria-label="评论状态">
+        <a href="?status=all"{% if selected_status == "all" %} class="active"{% endif %}>全部</a>
+        {% for value, label in status_choices %}<a href="?status={{ value }}"{% if selected_status == value %} class="active"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>
+
+    <div class="moderation-list">
+        {% for comment in page_obj %}
+        <article class="moderation-item">
+            <header>
+                <div><strong>{{ comment.name }}</strong> 评论了 <a href="{{ comment.post.get_absolute_url }}#comments">《{{ comment.post.title }}》</a></div>
+                <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at|date:"Y-m-d H:i" }}</time>
+            </header>
+            <p class="moderation-email">{{ comment.email }} · {{ comment.get_status_display }}</p>
+            <div class="comment-content">{{ comment.content|linebreaksbr }}</div>
+            <div class="table-actions moderation-actions">
+                {% if comment.status != "approved" %}
+                <form method="post" action="{% url 'blog:comment_change_status' comment.pk %}">
+                    {% csrf_token %}<input type="hidden" name="status" value="approved"><button type="submit">通过</button>
+                </form>
+                {% endif %}
+                {% if comment.status != "rejected" %}
+                <form method="post" action="{% url 'blog:comment_change_status' comment.pk %}">
+                    {% csrf_token %}<input type="hidden" name="status" value="rejected"><button type="submit">拒绝</button>
+                </form>
+                {% endif %}
+                <a class="danger-link" href="{% url 'blog:comment_delete' comment.pk %}">删除</a>
+            </div>
+        </article>
+        {% empty %}
+            <p class="empty-state">当前没有这个状态的评论。</p>
+        {% endfor %}
+    </div>
+    {% include "blog/includes/pagination.html" %}
+</section>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Rainzk 的个人博客，记录生活、思考与偶尔冒出来的想法。">
+    <title>{% block title %}Rainzk{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="{% static 'js/theme.js' %}"></script>
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <a class="site-name" href="{% url 'blog:home' %}">Rainzk</a>
+            <nav class="site-nav" aria-label="主导航">
+                <a href="{% url 'blog:home' %}">首页</a>
+                <a href="{% url 'blog:post_list' %}">文章</a>
+                <a href="{% url 'blog:archive' %}">归档</a>
+                <a href="{% url 'blog:about' %}">关于</a>
+                {% if request.user.is_staff %}
+                    <a href="{% url 'blog:dashboard' %}">写作台</a>
+                    <form class="nav-form" method="post" action="{% url 'blog:logout' %}">
+                        {% csrf_token %}
+                        <button type="submit">退出</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'blog:login' %}">登录</a>
+                {% endif %}
+                <button class="theme-toggle" type="button" data-theme-toggle aria-label="切换深色模式">◐</button>
+            </nav>
+        </div>
+    </header>
+
+    {% if messages %}
+    <div class="message-region" aria-live="polite">
+        {% for message in messages %}
+            <p class="message {{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="site-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <p>© {% now "Y" %} Rainzk · 安静地记录，认真地生活。</p>
+    </footer>
+</body>
+</html>
