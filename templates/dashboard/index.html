@@ -11,7 +11,7 @@
             <h1>写作台</h1>
         </div>
         <div class="button-group">
-            <a class="button" href="{% url 'blog:comment_moderation' %}">审核评论</a>
+            <a class="button" href="{% url 'blog:comment_moderation' %}">管理评论</a>
             <a class="button button-primary" href="{% url 'blog:dashboard_post_create' %}">写新文章</a>
         </div>
     </header>
@@ -20,7 +20,7 @@
         <div><strong>{{ statistics.total }}</strong><span>全部文章</span></div>
         <div><strong>{{ statistics.published }}</strong><span>已发布</span></div>
         <div><strong>{{ statistics.drafts }}</strong><span>草稿</span></div>
-        <div><strong>{{ statistics.pending_comments }}</strong><span>待审评论</span></div>
+        <div><strong>{{ statistics.pending_comments }}</strong><span>历史待处理</span></div>
     </div>
 
     <div class="dashboard-links">

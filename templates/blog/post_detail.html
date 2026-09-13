@@ -88,36 +88,25 @@
         {% for comment in approved_comments %}
         <article class="comment">
             <header>
-                <strong>{{ comment.name }}</strong>
+                <div><strong>{{ comment.name }}</strong>{% if comment.author_id %}<span class="verified-label">已登录</span>{% endif %}</div>
                 <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at|date:"Y-m-d H:i" }}</time>
             </header>
             <div class="comment-content">{{ comment.content|linebreaksbr }}</div>
         </article>
         {% empty %}
-            <p class="empty-state">还没有公开评论，欢迎留下第一句话。</p>
+            <p class="empty-state">还没有评论，欢迎留下第一句话。</p>
         {% endfor %}
     </div>
 
     {% if post.is_publicly_visible %}
+        {% if request.user.is_authenticated %}
     <div class="comment-form-wrap">
         <h3>留下评论</h3>
-        <p class="form-intro">评论提交后需要审核。邮箱只用于管理，不会公开展示。</p>
+        <p class="form-intro">将以“{{ current_display_name }}”发表，提交后会立即显示。</p>
         <form class="site-form" method="post" action="{% url 'blog:add_comment' post.slug %}">
             {% csrf_token %}
             {{ comment_form.website }}
             {{ comment_form.non_field_errors }}
-            <div class="form-row form-row-split">
-                <div class="field-group">
-                    <label for="{{ comment_form.name.id_for_label }}">{{ comment_form.name.label }}</label>
-                    {{ comment_form.name }}
-                    {{ comment_form.name.errors }}
-                </div>
-                <div class="field-group">
-                    <label for="{{ comment_form.email.id_for_label }}">{{ comment_form.email.label }}</label>
-                    {{ comment_form.email }}
-                    {{ comment_form.email.errors }}
-                </div>
-            </div>
             <div class="field-group">
                 <label for="{{ comment_form.content.id_for_label }}">{{ comment_form.content.label }}</label>
                 {{ comment_form.content }}
@@ -126,8 +115,15 @@
             <button class="button button-primary" type="submit">提交评论</button>
         </form>
     </div>
+        {% else %}
+        <div class="comment-login-callout">
+            <p>登录后，可以用自己的昵称参与这段讨论。</p>
+            <a class="button" href="{{ comment_login_url }}">登录后评论</a>
+            <a href="{% url 'blog:register' %}?next={{ post.get_absolute_url|urlencode }}%23comments">创建账号</a>
+        </div>
+        {% endif %}
     {% elif request.user.is_staff %}
-        <p class="form-intro">草稿、私密文章或定时文章暂不接受访客评论。</p>
+        <p class="form-intro">草稿、私密文章或定时文章暂不接受评论。</p>
     {% endif %}
 </section>
 {% endblock %}

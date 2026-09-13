@@ -164,6 +164,15 @@ a {
     color: var(--text);
 }
 
+.nav-identity {
+    max-width: 9rem;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 0.82rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .nav-form {
     display: inline;
     margin: 0;
@@ -836,6 +845,35 @@ a {
     margin: 0.55rem 0 1.4rem;
 }
 
+.verified-label {
+    display: inline-block;
+    margin-left: 0.55rem;
+    padding: 0.05rem 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.65rem;
+    font-weight: 400;
+    vertical-align: 0.08rem;
+}
+
+.comment-login-callout {
+    margin-top: 2.5rem;
+    padding: 1.2rem 1.3rem;
+    border-left: 2px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.comment-login-callout p {
+    margin: 0 0 0.9rem;
+}
+
+.comment-login-callout > a + a {
+    margin-left: 0.8rem;
+}
+
 .site-form {
     max-width: 760px;
 }
@@ -991,6 +1029,28 @@ button.button-danger {
 
 .auth-page .form-intro {
     margin: 0.65rem 0 2rem;
+}
+
+.auth-notes {
+    margin-top: 1.8rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.auth-notes p {
+    margin: 0.45rem 0;
+}
+
+.password-help ul {
+    margin: 0.45rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.account-name {
+    color: var(--text);
+    overflow-wrap: anywhere;
 }
 
 .dashboard-header {
@@ -1343,7 +1403,7 @@ button.button-danger {
     margin: 0;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
     html {
         font-size: 16px;
     }
@@ -1368,13 +1428,17 @@ button.button-danger {
         width: 100%;
         justify-content: flex-start;
         gap: 0.9rem;
-        overflow-x: auto;
-        white-space: nowrap;
+        flex-wrap: wrap;
+    }
+
+    .site-nav a,
+    .site-nav .nav-form,
+    .site-nav .nav-identity {
+        flex: 0 0 auto;
     }
 
     .theme-toggle {
         flex: 0 0 auto;
-        margin-left: auto;
     }
 
     .site-main {
@@ -1402,14 +1466,8 @@ button.button-danger {
         grid-row: 2;
     }
 
-    .post-item.has-cover {
-        grid-template-columns: minmax(0, 1fr) 96px;
-        align-items: start;
-        gap: 1rem;
-    }
-
     .post-thumbnail img {
-        aspect-ratio: 1;
+        aspect-ratio: 16 / 9;
     }
 
     .featured-section {

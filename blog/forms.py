@@ -1,12 +1,18 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.db import transaction
 
-from .models import Comment, Post
+from .accounts import account_with_same_name
+from .models import Comment, Post, Profile
 
 
-class StaffAuthenticationForm(AuthenticationForm):
+class AccountAuthenticationForm(AuthenticationForm):
+    error_messages = {
+        "invalid_login": "账号或密码不正确，请重新输入。",
+        "inactive": "账号或密码不正确，请重新输入。",
+    }
     username = forms.CharField(
-        label="用户名",
+        label="账号",
         widget=forms.TextInput(attrs={"autofocus": True, "autocomplete": "username"}),
     )
     password = forms.CharField(
@@ -14,6 +20,78 @@ class StaffAuthenticationForm(AuthenticationForm):
         strip=False,
         widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
     )
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip()
+        existing = account_with_same_name(username)
+        return existing.get_username() if existing else username
+
+
+class RegistrationForm(UserCreationForm):
+    display_name = forms.CharField(
+        label="昵称",
+        min_length=2,
+        max_length=40,
+        widget=forms.TextInput(
+            attrs={"autocomplete": "nickname", "placeholder": "公开显示的名字"}
+        ),
+        help_text="会显示在你发表的评论旁，可以和别人重名。",
+    )
+
+    class Meta(UserCreationForm.Meta):
+        fields = ("username", "display_name", "password1", "password2")
+        widgets = {
+            "username": forms.TextInput(
+                attrs={"autocomplete": "username", "placeholder": "用于登录的唯一账号"}
+            )
+        }
+        help_texts = {
+            "username": "只用于登录，不会代替你的公开昵称。",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].label = "账号"
+        self.fields["password1"].label = "密码"
+        self.fields["password2"].label = "确认密码"
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip().casefold()
+        if account_with_same_name(username):
+            raise forms.ValidationError("这个账号已经被使用，请换一个。")
+        return username
+
+    def clean_display_name(self):
+        return self.cleaned_data["display_name"].strip()
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if not commit:
+            return user
+        with transaction.atomic():
+            user.save()
+            Profile.objects.create(
+                user=user,
+                display_name=self.cleaned_data["display_name"],
+            )
+        return user
+
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ("display_name",)
+        widgets = {
+            "display_name": forms.TextInput(
+                attrs={"autocomplete": "nickname", "placeholder": "公开显示的名字"}
+            )
+        }
+        help_texts = {
+            "display_name": "修改后用于新的评论；已经发表的评论会保留原来的名字。",
+        }
+
+    def clean_display_name(self):
+        return self.cleaned_data["display_name"].strip()
 
 
 class PostForm(forms.ModelForm):
@@ -63,26 +141,17 @@ class PostForm(forms.ModelForm):
 
 
 class CommentForm(forms.ModelForm):
-    # 隐藏蜜罐字段：正常访客不会填写，简单机器人通常会自动填写。
+    # 保留隐藏蜜罐；它不会向登录用户展示，也不接受任何身份字段。
     website = forms.CharField(required=False, widget=forms.HiddenInput, label="")
 
     class Meta:
         model = Comment
-        fields = ("name", "email", "content")
+        fields = ("content",)
         widgets = {
-            "name": forms.TextInput(
-                attrs={"placeholder": "怎么称呼你", "autocomplete": "name", "maxlength": 80}
-            ),
-            "email": forms.EmailInput(
-                attrs={"placeholder": "仅用于管理，不会公开", "autocomplete": "email"}
-            ),
             "content": forms.Textarea(
                 attrs={"rows": 5, "placeholder": "写下你的想法……", "maxlength": 2000}
             ),
         }
-
-    def clean_name(self):
-        return self.cleaned_data["name"].strip()
 
     def clean_content(self):
         return self.cleaned_data["content"].strip()

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}注册 · Rainzk{% endblock %}
+{% block meta_description %}创建 Rainzk 博客账号，使用自己的昵称参与评论。{% endblock %}
+{% block robots_meta %}<meta name="robots" content="noindex,follow">{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <p class="eyebrow">成为这里的读者</p>
+    <h1>创建账号</h1>
+    <p class="form-intro">不需要邮箱。账号用于登录，昵称会公开显示在评论旁。</p>
+    <form class="site-form" method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+        <div class="field-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+            {% if field.help_text %}<div class="help-text password-help">{{ field.help_text }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <button class="button button-primary" type="submit">创建并登录</button>
+    </form>
+    <div class="auth-notes"><p>已经有账号？<a href="{% url 'blog:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">直接登录</a></p></div>
+</section>
+{% endblock %}

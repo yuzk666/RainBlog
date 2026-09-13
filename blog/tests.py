@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Category, Comment, Post, Tag
+from .models import Category, Comment, Post, Profile, Tag
 
 
 class BlogVisibilityTests(TestCase):
@@ -286,14 +286,25 @@ class DashboardAndLoginTests(TestCase):
         self.assertRedirects(response, reverse("blog:dashboard"))
         self.assertEqual(self.client.get(reverse("blog:dashboard")).status_code, 200)
 
-    def test_regular_user_is_rejected_by_staff_login(self):
+    def test_regular_user_can_log_in_and_is_sent_home(self):
         response = self.client.post(
             reverse("blog:login"),
             {"username": "reader", "password": "reader-test-password"},
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "仅供博客管理员")
-        self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertRedirects(response, reverse("blog:home"))
+        self.assertIn("_auth_user_id", self.client.session)
+        self.assertTrue(Profile.objects.filter(user=self.regular_user).exists())
+
+    def test_regular_user_cannot_open_dashboard_or_admin(self):
+        self.client.force_login(self.regular_user)
+        dashboard_response = self.client.get(reverse("blog:dashboard"))
+        create_response = self.client.get(reverse("blog:dashboard_post_create"))
+        admin_response = self.client.get(reverse("admin:index"))
+        self.assertEqual(dashboard_response.status_code, 302)
+        self.assertEqual(create_response.status_code, 302)
+        self.assertEqual(admin_response.status_code, 302)
+        self.assertIn(reverse("blog:login"), dashboard_response.url)
+        self.assertIn(reverse("admin:login"), admin_response.url)
 
     def test_visitor_cannot_open_dashboard_or_create_post(self):
         dashboard_response = self.client.get(reverse("blog:dashboard"))
@@ -364,6 +375,133 @@ class DashboardAndLoginTests(TestCase):
         self.assertFalse(Post.objects.filter(pk=self.post.pk).exists())
 
 
+class AccountTests(TestCase):
+    password = "Rain-reader-2026!"
+
+    def registration_data(self, **overrides):
+        data = {
+            "username": "NewReader",
+            "display_name": "  一位读者  ",
+            "password1": self.password,
+            "password2": self.password,
+        }
+        data.update(overrides)
+        return data
+
+    def test_registration_creates_profile_hashes_password_and_logs_user_in(self):
+        response = self.client.post(reverse("blog:register"), self.registration_data())
+        user = get_user_model().objects.get(username="newreader")
+        self.assertRedirects(response, reverse("blog:home"))
+        self.assertEqual(user.profile.display_name, "一位读者")
+        self.assertNotEqual(user.password, self.password)
+        self.assertTrue(user.check_password(self.password))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
+
+    def test_registration_rejects_weak_and_mismatched_passwords(self):
+        weak_response = self.client.post(
+            reverse("blog:register"),
+            self.registration_data(username="weak-user", password1="123", password2="123"),
+        )
+        mismatch_response = self.client.post(
+            reverse("blog:register"),
+            self.registration_data(
+                username="mismatch-user",
+                password1=self.password,
+                password2="Different-reader-2026!",
+            ),
+        )
+        self.assertEqual(weak_response.status_code, 200)
+        self.assertEqual(mismatch_response.status_code, 200)
+        self.assertFalse(get_user_model().objects.filter(username="weak-user").exists())
+        self.assertFalse(
+            get_user_model().objects.filter(username="mismatch-user").exists()
+        )
+
+    def test_registration_rejects_duplicate_username_ignoring_case(self):
+        get_user_model().objects.create_user(username="Rain", password=self.password)
+        response = self.client.post(
+            reverse("blog:register"),
+            self.registration_data(username="rAiN"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "这个账号已经被使用")
+        self.assertEqual(get_user_model().objects.filter(username__iexact="rain").count(), 1)
+
+    def test_login_failure_uses_one_generic_message(self):
+        response = self.client.post(
+            reverse("blog:login"),
+            {"username": "missing-reader", "password": "Wrong-reader-2026!"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "账号或密码不正确")
+        self.assertNotContains(response, "账号不存在")
+
+    def test_registration_and_login_respect_only_safe_next_urls(self):
+        profile_url = reverse("blog:profile")
+        register_response = self.client.post(
+            reverse("blog:register"),
+            self.registration_data(username="next-reader", next=profile_url),
+        )
+        self.assertRedirects(register_response, profile_url)
+        self.client.post(reverse("blog:logout"))
+
+        login_response = self.client.post(
+            reverse("blog:login"),
+            {
+                "username": "NEXT-READER",
+                "password": self.password,
+                "next": profile_url,
+            },
+        )
+        self.assertRedirects(login_response, profile_url)
+        self.client.post(reverse("blog:logout"))
+
+        external_response = self.client.post(
+            reverse("blog:login"),
+            {
+                "username": "next-reader",
+                "password": self.password,
+                "next": "https://attacker.example/escape",
+            },
+        )
+        self.assertRedirects(external_response, reverse("blog:home"))
+
+    def test_profile_can_change_nickname_and_password(self):
+        user = get_user_model().objects.create_user(
+            username="settings-reader", password=self.password
+        )
+        self.client.force_login(user)
+        profile_response = self.client.post(
+            reverse("blog:profile"), {"display_name": "  新名字  "}
+        )
+        self.assertRedirects(profile_response, reverse("blog:profile"))
+        self.assertEqual(user.profile.display_name, "新名字")
+
+        new_password = "Changed-reader-2026!"
+        password_response = self.client.post(
+            reverse("blog:password_change"),
+            {
+                "old_password": self.password,
+                "new_password1": new_password,
+                "new_password2": new_password,
+            },
+        )
+        self.assertRedirects(password_response, reverse("blog:profile"))
+        user.refresh_from_db()
+        self.assertTrue(user.check_password(new_password))
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_logout_requires_post_and_authenticated_register_redirects(self):
+        user = get_user_model().objects.create_user(
+            username="signed-in-reader", password=self.password
+        )
+        self.client.force_login(user)
+        self.assertRedirects(self.client.get(reverse("blog:register")), reverse("blog:home"))
+        self.assertEqual(self.client.get(reverse("blog:logout")).status_code, 405)
+        self.assertRedirects(self.client.post(reverse("blog:logout")), reverse("blog:home"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
 class CommentTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -372,6 +510,11 @@ class CommentTests(TestCase):
             email="admin@example.com",
             password="strong-test-password",
         )
+        cls.reader = get_user_model().objects.create_user(
+            username="comment-reader",
+            password="comment-reader-password",
+        )
+        Profile.objects.create(user=cls.reader, display_name="安静读者")
         cls.public_post = Post.objects.create(
             title="Public comments",
             slug="public-comments",
@@ -393,26 +536,82 @@ class CommentTests(TestCase):
             status=Post.Status.DRAFT,
             visibility=Post.Visibility.PUBLIC,
         )
+        cls.future_post = Post.objects.create(
+            title="Future comments",
+            slug="future-comments",
+            content="Future content",
+            status=Post.Status.PUBLISHED,
+            visibility=Post.Visibility.PUBLIC,
+            published_at=timezone.now() + timedelta(days=1),
+        )
 
     def comment_data(self, content="A thoughtful comment"):
         return {
-            "name": "Visitor",
-            "email": "visitor@example.com",
             "content": content,
             "website": "",
         }
 
-    def test_visitor_can_submit_comment_for_review(self):
+    def test_anonymous_visitor_cannot_submit_comment(self):
+        response = self.client.post(
+            reverse("blog:add_comment", args=[self.public_post.slug]),
+            self.comment_data(),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith(reverse("blog:login")))
+        self.assertIn("%23comments", response.url)
+        self.assertEqual(Comment.objects.count(), 0)
+        detail = self.client.get(self.public_post.get_absolute_url())
+        self.assertContains(detail, "登录后评论")
+        self.assertNotContains(detail, "提交评论")
+
+    def test_logged_in_user_comment_is_immediately_public(self):
+        self.client.force_login(self.reader)
         response = self.client.post(
             reverse("blog:add_comment", args=[self.public_post.slug]),
             self.comment_data(),
         )
         self.assertRedirects(response, f"{self.public_post.get_absolute_url()}#comments")
         comment = Comment.objects.get()
-        self.assertEqual(comment.status, Comment.Status.PENDING)
+        self.assertEqual(comment.author, self.reader)
+        self.assertEqual(comment.name, "安静读者")
+        self.assertEqual(comment.email, "")
+        self.assertEqual(comment.status, Comment.Status.APPROVED)
         detail = self.client.get(self.public_post.get_absolute_url())
-        self.assertNotContains(detail, comment.content)
-        self.assertNotContains(detail, comment.email)
+        self.assertContains(detail, comment.content)
+
+    def test_client_cannot_forge_comment_identity_or_status(self):
+        other = get_user_model().objects.create_user(
+            username="other-reader", password="other-reader-password"
+        )
+        self.client.force_login(self.reader)
+        forged = self.comment_data("Identity stays trustworthy")
+        forged.update(
+            {
+                "name": "Forged name",
+                "email": "forged@example.com",
+                "author": other.pk,
+                "status": Comment.Status.REJECTED,
+            }
+        )
+        self.client.post(
+            reverse("blog:add_comment", args=[self.public_post.slug]), forged
+        )
+        comment = Comment.objects.get()
+        self.assertEqual(comment.author, self.reader)
+        self.assertEqual(comment.name, "安静读者")
+        self.assertEqual(comment.email, "")
+        self.assertEqual(comment.status, Comment.Status.APPROVED)
+
+    def test_nickname_change_does_not_rewrite_historical_comment(self):
+        self.client.force_login(self.reader)
+        self.client.post(
+            reverse("blog:add_comment", args=[self.public_post.slug]),
+            self.comment_data("Keep the old name"),
+        )
+        profile = self.reader.profile
+        profile.display_name = "后来改名"
+        profile.save()
+        self.assertEqual(Comment.objects.get().name, "安静读者")
 
     def test_approved_comment_is_visible_but_email_is_private(self):
         comment = Comment.objects.create(
@@ -428,18 +627,17 @@ class CommentTests(TestCase):
         self.assertNotContains(response, comment.email)
 
     def test_comment_html_is_escaped(self):
-        Comment.objects.create(
-            post=self.public_post,
-            name="Safe visitor",
-            email="safe@example.com",
-            content="<script>alert('comment')</script>",
-            status=Comment.Status.APPROVED,
+        self.client.force_login(self.reader)
+        self.client.post(
+            reverse("blog:add_comment", args=[self.public_post.slug]),
+            self.comment_data("<script>alert('comment')</script>"),
         )
         response = self.client.get(self.public_post.get_absolute_url())
         self.assertNotContains(response, "<script>alert('comment')</script>")
         self.assertContains(response, "&lt;script&gt;")
 
-    def test_comments_cannot_be_submitted_to_private_or_draft_posts(self):
+    def test_comments_cannot_be_submitted_to_private_draft_or_future_posts(self):
+        self.client.force_login(self.reader)
         private_response = self.client.post(
             reverse("blog:add_comment", args=[self.private_post.slug]),
             self.comment_data(),
@@ -448,11 +646,17 @@ class CommentTests(TestCase):
             reverse("blog:add_comment", args=[self.draft_post.slug]),
             self.comment_data(),
         )
+        future_response = self.client.post(
+            reverse("blog:add_comment", args=[self.future_post.slug]),
+            self.comment_data(),
+        )
         self.assertEqual(private_response.status_code, 404)
         self.assertEqual(draft_response.status_code, 404)
+        self.assertEqual(future_response.status_code, 404)
         self.assertEqual(Comment.objects.count(), 0)
 
     def test_honeypot_discards_bot_comment(self):
+        self.client.force_login(self.reader)
         data = self.comment_data()
         data["website"] = "https://spam.example"
         response = self.client.post(
@@ -462,6 +666,7 @@ class CommentTests(TestCase):
         self.assertEqual(Comment.objects.count(), 0)
 
     def test_comment_submission_has_session_cooldown(self):
+        self.client.force_login(self.reader)
         url = reverse("blog:add_comment", args=[self.public_post.slug])
         self.client.post(url, self.comment_data("First comment"))
         response = self.client.post(url, self.comment_data("Second comment"))

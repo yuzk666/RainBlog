@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}个人设置 · Rainzk{% endblock %}
+{% block meta_description %}管理博客账号的公开昵称和密码。{% endblock %}
+{% block robots_meta %}<meta name="robots" content="noindex,nofollow">{% endblock %}
+
+{% block content %}
+<section class="auth-page account-page">
+    <p class="eyebrow">个人设置</p>
+    <h1>{{ current_display_name }}</h1>
+    <p class="form-intro">登录账号：<span class="account-name">{{ request.user.username }}</span></p>
+    <form class="site-form" method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="field-group">
+            <label for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>
+            {{ form.display_name }}
+            {{ form.display_name.errors }}
+            {% if form.display_name.help_text %}<p class="help-text">{{ form.display_name.help_text }}</p>{% endif %}
+        </div>
+        <button class="button button-primary" type="submit">保存昵称</button>
+        <a class="button" href="{% url 'blog:password_change' %}">修改密码</a>
+    </form>
+</section>
+{% endblock %}

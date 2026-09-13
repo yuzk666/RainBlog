@@ -32,14 +32,17 @@
                 <a href="{% url 'blog:search' %}"{% if request.resolver_match.url_name == 'search' %} aria-current="page"{% endif %}>搜索</a>
                 <a href="{% url 'blog:archive' %}"{% if request.resolver_match.url_name == 'archive' %} aria-current="page"{% endif %}>归档</a>
                 <a href="{% url 'blog:about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>关于</a>
-                {% if request.user.is_staff %}
-                    <a href="{% url 'blog:dashboard' %}">写作台</a>
+                {% if request.user.is_authenticated %}
+                    <span class="nav-identity" title="当前登录昵称">{{ current_display_name }}</span>
+                    {% if request.user.is_staff %}<a href="{% url 'blog:dashboard' %}">写作台</a>{% endif %}
+                    <a href="{% url 'blog:profile' %}"{% if request.resolver_match.url_name == 'profile' or request.resolver_match.url_name == 'password_change' %} aria-current="page"{% endif %}>个人设置</a>
                     <form class="nav-form" method="post" action="{% url 'blog:logout' %}">
                         {% csrf_token %}
                         <button type="submit">退出</button>
                     </form>
                 {% else %}
                     <a href="{% url 'blog:login' %}">登录</a>
+                    <a href="{% url 'blog:register' %}">注册</a>
                 {% endif %}
                 <button class="theme-toggle" type="button" data-theme-toggle aria-label="切换深色模式">◐</button>
             </nav>

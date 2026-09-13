@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}管理员登录 · Rainzk{% endblock %}
-{% block meta_description %}Rainzk 博客管理员登录。{% endblock %}
+{% block title %}登录 · Rainzk{% endblock %}
+{% block meta_description %}登录 Rainzk 的博客，使用自己的昵称参与评论。{% endblock %}
 {% block robots_meta %}<meta name="robots" content="noindex,nofollow">{% endblock %}
 
 {% block content %}
 <section class="auth-page">
-    <p class="eyebrow">写作入口</p>
-    <h1>管理员登录</h1>
-    <p class="form-intro">登录后可以写作、管理文章和审核评论。</p>
+    <p class="eyebrow">欢迎回来</p>
+    <h1>登录</h1>
+    <p class="form-intro">登录后可以用自己的昵称参与评论。</p>
     <form class="site-form" method="post">
         {% csrf_token %}
         {{ form.non_field_errors }}
@@ -25,5 +25,9 @@
         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
         <button class="button button-primary" type="submit">登录</button>
     </form>
+    <div class="auth-notes">
+        <p>还没有账号？<a href="{% url 'blog:register' %}{% if next %}?next={{ next|urlencode }}{% endif %}">创建一个</a></p>
+        <p>忘记密码时，请联系博客管理员为你重设。</p>
+    </div>
 </section>
 {% endblock %}

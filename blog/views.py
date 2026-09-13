@@ -1,16 +1,28 @@
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .forms import CommentForm, PostForm, StaffAuthenticationForm
+from .accounts import get_or_create_profile
+from .forms import (
+    AccountAuthenticationForm,
+    CommentForm,
+    PostForm,
+    ProfileForm,
+    RegistrationForm,
+)
 from .markdown import render_markdown_document
 from .models import Category, Comment, Post, Tag
 from .site_content import ABOUT_PROFILE
@@ -19,22 +31,72 @@ from .site_content import ABOUT_PROFILE
 COMMENT_COOLDOWN_SECONDS = 30
 
 
-class StaffLoginView(LoginView):
+class AccountLoginView(LoginView):
     template_name = "registration/login.html"
-    authentication_form = StaffAuthenticationForm
-    redirect_authenticated_user = False
-
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated and request.user.is_staff:
-            return redirect("blog:dashboard")
-        return super().dispatch(request, *args, **kwargs)
+    authentication_form = AccountAuthenticationForm
+    redirect_authenticated_user = True
 
     def form_valid(self, form):
-        if not form.get_user().is_staff:
-            form.add_error(None, "这个入口仅供博客管理员使用。")
-            return self.form_invalid(form)
+        get_or_create_profile(form.get_user())
         messages.success(self.request, "欢迎回来。")
         return super().form_valid(form)
+
+    def get_success_url(self):
+        redirect_url = self.get_redirect_url()
+        if redirect_url:
+            return redirect_url
+        if self.request.user.is_staff:
+            return reverse("blog:dashboard")
+        return reverse("blog:home")
+
+
+class AccountPasswordChangeView(PasswordChangeView):
+    template_name = "registration/password_change.html"
+    success_url = reverse_lazy("blog:profile")
+
+    def form_valid(self, form):
+        messages.success(self.request, "密码已经更新。")
+        return super().form_valid(form)
+
+
+def safe_next_url(request):
+    candidate = request.POST.get("next") or request.GET.get("next") or ""
+    if url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return candidate
+    return ""
+
+
+def register(request):
+    if request.user.is_authenticated:
+        return redirect("blog:dashboard" if request.user.is_staff else "blog:home")
+
+    next_url = safe_next_url(request)
+    form = RegistrationForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = form.save()
+        auth_login(request, user)
+        messages.success(request, "账号已经创建，欢迎来到这里。")
+        return redirect(next_url or "blog:home")
+    return render(
+        request,
+        "registration/register.html",
+        {"form": form, "next": next_url},
+    )
+
+
+@login_required(login_url="blog:login")
+def profile(request):
+    account_profile = get_or_create_profile(request.user)
+    form = ProfileForm(request.POST or None, instance=account_profile)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "公开昵称已经更新。")
+        return redirect("blog:profile")
+    return render(request, "registration/profile.html", {"form": form})
 
 
 def visible_posts(user):
@@ -43,15 +105,6 @@ def visible_posts(user):
         .select_related("category")
         .prefetch_related("tags")
     )
-
-
-def comment_initial(user):
-    if not user.is_authenticated:
-        return None
-    return {
-        "name": user.get_full_name() or user.get_username(),
-        "email": user.email,
-    }
 
 
 def post_detail_context(request, post, comment_form=None):
@@ -96,7 +149,11 @@ def post_detail_context(request, post, comment_form=None):
         "canonical_url": request.build_absolute_uri(post.get_absolute_url()),
         "og_image_url": request.build_absolute_uri(post.cover.url) if post.cover else "",
         "approved_comments": post.comments.approved().select_related("author"),
-        "comment_form": comment_form or CommentForm(initial=comment_initial(request.user)),
+        "comment_form": comment_form or CommentForm(),
+        "comment_login_url": (
+            f"{reverse('blog:login')}?"
+            f"{urlencode({'next': f'{post.get_absolute_url()}#comments'})}"
+        ),
     }
 
 
@@ -149,9 +206,13 @@ def add_comment(request, slug):
         slug=slug,
     )
 
+    if not request.user.is_authenticated:
+        login_url = reverse("blog:login")
+        next_url = f"{post.get_absolute_url()}#comments"
+        return redirect(f"{login_url}?{urlencode({'next': next_url})}")
+
     # 蜜罐字段被填写时静默丢弃，避免向机器人暴露拦截规则。
     if request.POST.get("website", "").strip():
-        messages.success(request, "评论已提交，审核后会显示出来。")
         return redirect(f"{post.get_absolute_url()}#comments")
 
     form = CommentForm(request.POST)
@@ -164,16 +225,13 @@ def add_comment(request, slug):
     if form.is_valid() and not too_frequent:
         comment = form.save(commit=False)
         comment.post = post
-        if request.user.is_authenticated:
-            comment.author = request.user
-        if request.user.is_staff:
-            comment.status = Comment.Status.APPROVED
+        comment.author = request.user
+        comment.name = get_or_create_profile(request.user).display_name
+        comment.email = ""
+        comment.status = Comment.Status.APPROVED
         comment.save()
         request.session["last_comment_at"] = timezone.now().timestamp()
-        if comment.status == Comment.Status.APPROVED:
-            messages.success(request, "评论已经发布。")
-        else:
-            messages.success(request, "评论已提交，审核后会显示出来。")
+        messages.success(request, "评论已经发布。")
         return redirect(f"{post.get_absolute_url()}#comments")
 
     context = post_detail_context(request, post, comment_form=form)
@@ -324,7 +382,7 @@ def dashboard_post_status(request, pk):
 
 @staff_member_required(login_url="blog:login")
 def comment_moderation(request):
-    selected_status = request.GET.get("status", Comment.Status.PENDING)
+    selected_status = request.GET.get("status", "all")
     comments = Comment.objects.select_related("post", "author")
     if selected_status in Comment.Status.values:
         comments = comments.filter(status=selected_status)

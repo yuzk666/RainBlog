@@ -175,6 +175,29 @@ class CommentQuerySet(models.QuerySet):
         return self.filter(status=Comment.Status.APPROVED)
 
 
+class Profile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        verbose_name="用户",
+        related_name="profile",
+        on_delete=models.CASCADE,
+    )
+    display_name = models.CharField(
+        "公开昵称",
+        max_length=40,
+        validators=[MinLengthValidator(2)],
+    )
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("修改时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "用户资料"
+        verbose_name_plural = "用户资料"
+
+    def __str__(self) -> str:
+        return f"{self.display_name}（{self.user.get_username()}）"
+
+
 class Comment(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "待审核"
@@ -196,7 +219,7 @@ class Comment(models.Model):
         blank=True,
     )
     name = models.CharField("昵称", max_length=80)
-    email = models.EmailField("邮箱")
+    email = models.EmailField("邮箱", blank=True)
     content = models.TextField(
         "评论内容",
         validators=[MinLengthValidator(2), MaxLengthValidator(2000)],

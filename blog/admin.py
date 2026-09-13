@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils import timezone
 
-from .models import Category, Comment, Post, Tag
+from .models import Category, Comment, Post, Profile, Tag
 
 
 @admin.register(Category)
@@ -71,3 +71,11 @@ class CommentAdmin(admin.ModelAdmin):
     @admin.action(description="拒绝所选评论")
     def reject_comments(self, request, queryset):
         queryset.update(status=Comment.Status.REJECTED)
+
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ("display_name", "user", "created_at", "updated_at")
+    search_fields = ("display_name", "user__username")
+    list_select_related = ("user",)
+    readonly_fields = ("created_at", "updated_at")

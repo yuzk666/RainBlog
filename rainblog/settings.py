@@ -71,6 +71,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "blog.context_processors.account_identity",
             ],
         },
     },
@@ -107,7 +108,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "blog:login"
-LOGIN_REDIRECT_URL = "blog:dashboard"
+LOGIN_REDIRECT_URL = "blog:home"
 LOGOUT_REDIRECT_URL = "blog:home"
 
 # PythonAnywhere 会通过代理转发 HTTPS 请求。
