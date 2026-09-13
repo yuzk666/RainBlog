@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .paper { fill: #fafaf8; }
+    .ink { fill: #3f5f58; }
+    @media (prefers-color-scheme: dark) {
+      .paper { fill: #181917; }
+      .ink { fill: #9bbeb3; }
+    }
+  </style>
+  <rect class="paper" width="64" height="64" rx="14"/>
+  <path class="ink" d="M18 47V16h13.2c8.2 0 13 3.8 13 10.5 0 4.7-2.5 8-7 9.4L47 47h-8.3l-8.4-10H25v10h-7zm7-16h5.7c4.2 0 6.4-1.4 6.4-4.3 0-3-2.2-4.4-6.4-4.4H25V31z"/>
+</svg>

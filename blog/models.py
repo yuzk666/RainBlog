@@ -1,8 +1,12 @@
+import math
+import re
+
 from django.conf import settings
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import Truncator
 from django.utils.text import slugify
 
 
@@ -101,6 +105,7 @@ class Post(models.Model):
         blank=True,
     )
     tags = models.ManyToManyField(Tag, verbose_name="标签", related_name="posts", blank=True)
+    is_featured = models.BooleanField("首页精选", default=False, db_index=True)
     status = models.CharField("状态", max_length=10, choices=Status.choices, default=Status.DRAFT)
     visibility = models.CharField(
         "可见性", max_length=10, choices=Visibility.choices, default=Visibility.PUBLIC
@@ -139,6 +144,21 @@ class Post(models.Model):
 
     def get_absolute_url(self):
         return reverse("blog:post_detail", kwargs={"slug": self.slug})
+
+    @property
+    def reading_time(self) -> int:
+        """按中文字符与英文单词的常见阅读速度估算分钟数。"""
+        text = re.sub(r"```.*?```", " ", self.content or "", flags=re.DOTALL)
+        chinese_characters = len(re.findall(r"[\u3400-\u9fff]", text))
+        latin_words = len(re.findall(r"\b[A-Za-z0-9][A-Za-z0-9'-]*\b", text))
+        return max(1, math.ceil(chinese_characters / 400 + latin_words / 220))
+
+    @property
+    def seo_description(self) -> str:
+        source = self.summary or self.content or self.title
+        plain_text = re.sub(r"[`*_>#\[\]()!~-]+", " ", source)
+        plain_text = " ".join(plain_text.split())
+        return Truncator(plain_text).chars(155)
 
     @property
     def is_publicly_visible(self) -> bool:

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{% if keyword %}搜索“{{ keyword }}”{% else %}搜索文章{% endif %} · Rainzk{% endblock %}
+{% block meta_description %}在 Rainzk 的博客中搜索文章。{% endblock %}
+{% block robots_meta %}<meta name="robots" content="noindex,follow">{% endblock %}
+
+{% block content %}
+<header class="page-heading search-heading">
+    <p class="eyebrow">在文字里寻找</p>
+    <h1>搜索文章</h1>
+    {% if keyword %}<p>“{{ keyword }}”找到 {{ page_obj.paginator.count }} 篇文章。</p>{% else %}<p>输入一个词，找回标题、摘要或正文里的片段。</p>{% endif %}
+</header>
+
+<form class="search-form search-form-large" role="search" method="get" action="{% url 'blog:search' %}">
+    <label class="visually-hidden" for="site-search">搜索文章</label>
+    <input id="site-search" type="search" name="q" value="{{ keyword }}" placeholder="例如：生活、阅读、Python" maxlength="100" autofocus>
+    <button class="button button-primary" type="submit">搜索</button>
+</form>
+
+{% if keyword %}
+<div class="post-list search-results">
+    {% for post in page_obj %}
+        {% include "blog/includes/post_item.html" %}
+    {% empty %}
+        <div class="empty-state empty-search">
+            <p>没有找到相符的文章。</p>
+            <p>可以换一个更短或更宽泛的关键词。</p>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% include "blog/includes/pagination.html" %}
+{% endblock %}

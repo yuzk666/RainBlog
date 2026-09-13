@@ -23,12 +23,13 @@ class PostAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "category",
+        "is_featured",
         "status",
         "visibility",
         "published_at",
         "updated_at",
     )
-    list_filter = ("status", "visibility", "category", "published_at")
+    list_filter = ("status", "visibility", "is_featured", "category", "published_at")
     search_fields = ("title", "summary", "content")
     prepopulated_fields = {"slug": ("title",)}
     filter_horizontal = ("tags",)
@@ -38,7 +39,7 @@ class PostAdmin(admin.ModelAdmin):
     actions = ("publish_posts", "make_draft")
     fieldsets = (
         (None, {"fields": ("title", "slug", "summary", "content", "cover")}),
-        ("组织", {"fields": ("category", "tags")}),
+        ("组织", {"fields": ("category", "tags", "is_featured")}),
         ("发布", {"fields": ("status", "visibility", "published_at")}),
         ("时间记录", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )

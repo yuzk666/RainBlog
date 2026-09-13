@@ -38,6 +38,7 @@ class PostForm(forms.ModelForm):
             "cover",
             "category",
             "tags",
+            "is_featured",
             "status",
             "visibility",
             "published_at",

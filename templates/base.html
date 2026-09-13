@@ -4,20 +4,34 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Rainzk 的个人博客，记录生活、思考与偶尔冒出来的想法。">
+    <meta name="description" content="{% block meta_description %}Rainzk 的个人博客，记录生活、思考与偶尔冒出来的想法。{% endblock %}">
+    {% block robots_meta %}{% endblock %}
     <title>{% block title %}Rainzk{% endblock %}</title>
+    <link rel="canonical" href="{% block canonical_url %}{{ request.build_absolute_uri }}{% endblock %}">
+    <link rel="alternate" type="application/rss+xml" title="Rainzk 的最近文章" href="{% url 'blog:feed' %}">
+    <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+    {% block social_meta %}
+    <meta property="og:site_name" content="Rainzk">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Rainzk">
+    <meta property="og:description" content="Rainzk 的个人博客，记录生活、思考与偶尔冒出来的想法。">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta name="twitter:card" content="summary">
+    {% endblock %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <script src="{% static 'js/theme.js' %}"></script>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">跳到正文</a>
     <header class="site-header">
         <div class="header-inner">
             <a class="site-name" href="{% url 'blog:home' %}">Rainzk</a>
             <nav class="site-nav" aria-label="主导航">
-                <a href="{% url 'blog:home' %}">首页</a>
-                <a href="{% url 'blog:post_list' %}">文章</a>
-                <a href="{% url 'blog:archive' %}">归档</a>
-                <a href="{% url 'blog:about' %}">关于</a>
+                <a href="{% url 'blog:home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>首页</a>
+                <a href="{% url 'blog:post_list' %}"{% if request.resolver_match.url_name == 'post_list' or request.resolver_match.url_name == 'post_detail' %} aria-current="page"{% endif %}>文章</a>
+                <a href="{% url 'blog:search' %}"{% if request.resolver_match.url_name == 'search' %} aria-current="page"{% endif %}>搜索</a>
+                <a href="{% url 'blog:archive' %}"{% if request.resolver_match.url_name == 'archive' %} aria-current="page"{% endif %}>归档</a>
+                <a href="{% url 'blog:about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>关于</a>
                 {% if request.user.is_staff %}
                     <a href="{% url 'blog:dashboard' %}">写作台</a>
                     <form class="nav-form" method="post" action="{% url 'blog:logout' %}">
@@ -40,12 +54,12 @@
     </div>
     {% endif %}
 
-    <main class="site-main">
+    <main class="site-main" id="main-content" tabindex="-1">
         {% block content %}{% endblock %}
     </main>
 
     <footer class="site-footer">
-        <p>© {% now "Y" %} Rainzk · 安静地记录，认真地生活。</p>
+        <p>© {% now "Y" %} Rainzk · 安静地记录，认真地生活。 · <a href="{% url 'blog:feed' %}">RSS</a></p>
     </footer>
 </body>
 </html>

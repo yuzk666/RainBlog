@@ -4,12 +4,16 @@ from django.contrib.auth import logout
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import CommentForm, PostForm, StaffAuthenticationForm
+from .markdown import render_markdown_document
 from .models import Category, Comment, Post, Tag
+from .site_content import ABOUT_PROFILE
 
 
 COMMENT_COOLDOWN_SECONDS = 30
@@ -51,22 +55,86 @@ def comment_initial(user):
 
 
 def post_detail_context(request, post, comment_form=None):
+    rendered_content, toc = render_markdown_document(post.content)
+    neighboring_posts = visible_posts(request.user).exclude(published_at__isnull=True)
+    previous_post = None
+    next_post = None
+    if post.published_at:
+        previous_post = neighboring_posts.filter(
+            published_at__lt=post.published_at
+        ).order_by("-published_at", "-pk").first()
+        next_post = neighboring_posts.filter(
+            published_at__gt=post.published_at
+        ).order_by("published_at", "pk").first()
+
+    related_filter = Q()
+    has_related_filter = False
+    if post.category_id:
+        related_filter |= Q(category_id=post.category_id)
+        has_related_filter = True
+    tag_ids = list(post.tags.values_list("pk", flat=True))
+    if tag_ids:
+        related_filter |= Q(tags__in=tag_ids)
+        has_related_filter = True
+    related_posts = []
+    if has_related_filter:
+        related_posts = list(
+            visible_posts(request.user)
+            .exclude(pk=post.pk)
+            .filter(related_filter)
+            .distinct()
+            .order_by("-is_featured", "-published_at", "-created_at")[:3]
+        )
+
     return {
         "post": post,
+        "rendered_content": rendered_content,
+        "toc": toc if len(toc) > 1 else [],
+        "previous_post": previous_post,
+        "next_post": next_post,
+        "related_posts": related_posts,
+        "canonical_url": request.build_absolute_uri(post.get_absolute_url()),
+        "og_image_url": request.build_absolute_uri(post.cover.url) if post.cover else "",
         "approved_comments": post.comments.approved().select_related("author"),
         "comment_form": comment_form or CommentForm(initial=comment_initial(request.user)),
     }
 
 
 def home(request):
-    posts = visible_posts(request.user)[:6]
-    return render(request, "blog/home.html", {"posts": posts})
+    all_posts = visible_posts(request.user)
+    featured_posts = list(all_posts.filter(is_featured=True)[:2])
+    if not featured_posts:
+        featured_posts = list(all_posts[:1])
+    featured_ids = [post.pk for post in featured_posts]
+    posts = all_posts.exclude(pk__in=featured_ids)[:6]
+    return render(
+        request,
+        "blog/home.html",
+        {"featured_posts": featured_posts, "posts": posts},
+    )
 
 
 def post_list(request):
     paginator = Paginator(visible_posts(request.user), 10)
     page_obj = paginator.get_page(request.GET.get("page"))
     return render(request, "blog/post_list.html", {"page_obj": page_obj})
+
+
+def search(request):
+    keyword = request.GET.get("q", "").strip()[:100]
+    posts = visible_posts(request.user).none()
+    if keyword:
+        posts = visible_posts(request.user).filter(
+            Q(title__icontains=keyword)
+            | Q(summary__icontains=keyword)
+            | Q(content__icontains=keyword)
+        )
+    page_obj = Paginator(posts, 10).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "blog/search.html",
+        {"page_obj": page_obj, "keyword": keyword},
+    )
 
 
 def post_detail(request, slug):
@@ -149,7 +217,13 @@ def archive(request):
 
 
 def about(request):
-    return render(request, "blog/about.html")
+    return render(request, "blog/about.html", {"profile": ABOUT_PROFILE})
+
+
+def robots_txt(request):
+    sitemap_url = request.build_absolute_uri(reverse("sitemap"))
+    content = f"User-agent: *\nAllow: /\n\nSitemap: {sitemap_url}\n"
+    return HttpResponse(content, content_type="text/plain; charset=utf-8")
 
 
 @require_POST

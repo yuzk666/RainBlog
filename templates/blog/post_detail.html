@@ -1,7 +1,22 @@
 {% extends "base.html" %}
-{% load markdown_extras %}
 
 {% block title %}{{ post.title }} · Rainzk{% endblock %}
+{% block meta_description %}{{ post.seo_description }}{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block social_meta %}
+    <meta property="og:site_name" content="Rainzk">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="{{ post.title }}">
+    <meta property="og:description" content="{{ post.seo_description }}">
+    <meta property="og:url" content="{{ canonical_url }}">
+    {% if og_image_url %}<meta property="og:image" content="{{ og_image_url }}">{% endif %}
+    {% if post.published_at %}<meta property="article:published_time" content="{{ post.published_at|date:'c' }}">{% endif %}
+    <meta property="article:modified_time" content="{{ post.updated_at|date:'c' }}">
+    <meta name="twitter:card" content="{% if og_image_url %}summary_large_image{% else %}summary{% endif %}">
+    <meta name="twitter:title" content="{{ post.title }}">
+    <meta name="twitter:description" content="{{ post.seo_description }}">
+    {% if og_image_url %}<meta name="twitter:image" content="{{ og_image_url }}">{% endif %}
+{% endblock %}
 
 {% block content %}
 <article class="article">
@@ -10,6 +25,7 @@
         <div class="article-meta">
             {% if post.published_at %}<time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:"Y年m月d日" }}</time>{% else %}<span>尚未发布</span>{% endif %}
             <span>更新于 {{ post.updated_at|date:"Y年m月d日" }}</span>
+            <span>约 {{ post.reading_time }} 分钟</span>
             {% if post.category %}<a href="{{ post.category.get_absolute_url }}">{{ post.category.name }}</a>{% endif %}
             {% if request.user.is_staff and post.status == "draft" %}<span class="status-label">草稿预览</span>{% endif %}
             {% if request.user.is_staff and post.visibility == "private" %}<span class="status-label">私密文章</span>{% endif %}
@@ -25,8 +41,42 @@
     </header>
 
     {% if post.cover %}<img class="article-cover" src="{{ post.cover.url }}" alt="{{ post.title }}的封面">{% endif %}
-    <div class="prose">{{ post.content|markdown }}</div>
+    {% if toc %}
+    <nav class="article-toc" aria-labelledby="toc-heading">
+        <p id="toc-heading">本文目录</p>
+        <ol>
+            {% for item in toc %}
+            <li class="toc-level-{{ item.level }}"><a href="#{{ item.anchor }}">{{ item.title }}</a></li>
+            {% endfor %}
+        </ol>
+    </nav>
+    {% endif %}
+    <div class="prose">{{ rendered_content }}</div>
+
+    {% if previous_post or next_post %}
+    <nav class="article-navigation" aria-label="相邻文章">
+        {% if previous_post %}<a class="previous" href="{{ previous_post.get_absolute_url }}"><span>上一篇</span>{{ previous_post.title }}</a>{% else %}<span></span>{% endif %}
+        {% if next_post %}<a class="next" href="{{ next_post.get_absolute_url }}"><span>下一篇</span>{{ next_post.title }}</a>{% endif %}
+    </nav>
+    {% endif %}
 </article>
+
+{% if related_posts %}
+<section class="related-posts" aria-labelledby="related-heading">
+    <div class="section-heading">
+        <h2 id="related-heading">继续阅读</h2>
+        <span>相近的分类与话题</span>
+    </div>
+    <div class="related-grid">
+        {% for related in related_posts %}
+        <article>
+            <p>{% if related.category %}{{ related.category.name }} · {% endif %}约 {{ related.reading_time }} 分钟</p>
+            <h3><a href="{{ related.get_absolute_url }}">{{ related.title }}</a></h3>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
 
 <section class="comments" id="comments" aria-labelledby="comments-heading">
     <header class="comments-heading">

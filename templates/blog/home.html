@@ -1,12 +1,47 @@
 {% extends "base.html" %}
 
+{% block meta_description %}Rainzk 的个人博客，在安静的角落记录生活、阅读、技术与偶尔冒出来的想法。{% endblock %}
+
 {% block content %}
 <section class="intro">
     <p class="eyebrow">个人博客</p>
     <h1>Rainzk</h1>
     <p class="intro-text">记录一些生活、思考和偶尔冒出来的想法。</p>
+    <div class="intro-actions" aria-label="开始浏览">
+        <a href="{% url 'blog:post_list' %}">阅读文章</a>
+        <a href="{% url 'blog:about' %}">关于这里</a>
+    </div>
 </section>
 
+{% if featured_posts %}
+<section class="featured-section" aria-labelledby="featured-posts">
+    <div class="section-heading">
+        <h2 id="featured-posts">精选文章</h2>
+        <span>值得从这里开始</span>
+    </div>
+    <div class="featured-grid">
+        {% for post in featured_posts %}
+        <article class="featured-card{% if post.cover %} has-cover{% endif %}">
+            {% if post.cover %}
+            <a class="featured-cover" href="{{ post.get_absolute_url }}" tabindex="-1" aria-hidden="true">
+                <img src="{{ post.cover.url }}" alt="" loading="lazy">
+            </a>
+            {% endif %}
+            <div class="featured-body">
+                <p class="featured-kicker">
+                    {% if post.category %}{{ post.category.name }} · {% endif %}约 {{ post.reading_time }} 分钟
+                </p>
+                <h2><a href="{{ post.get_absolute_url }}">{{ post.title }}</a></h2>
+                {% if post.summary %}<p class="summary">{{ post.summary }}</p>{% endif %}
+                <time datetime="{{ post.published_at|date:'c' }}">{% if post.published_at %}{{ post.published_at|date:"Y年m月d日" }}{% else %}尚未发布{% endif %}</time>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if posts %}
 <section class="post-section" aria-labelledby="recent-posts">
     <div class="section-heading">
         <h2 id="recent-posts">最近文章</h2>
@@ -15,9 +50,10 @@
     <div class="post-list">
         {% for post in posts %}
             {% include "blog/includes/post_item.html" %}
-        {% empty %}
-            <p class="empty-state">这里还很安静。第一篇文章正在路上。</p>
         {% endfor %}
     </div>
 </section>
+{% elif not featured_posts %}
+<p class="empty-state">这里还很安静。第一篇文章正在路上。</p>
+{% endif %}
 {% endblock %}

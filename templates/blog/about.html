@@ -1,13 +1,29 @@
 {% extends "base.html" %}
 
 {% block title %}关于 · Rainzk{% endblock %}
+{% block meta_description %}关于 Rainzk 和这个用来记录生活、阅读、技术与思考的个人博客。{% endblock %}
 
 {% block content %}
-<article class="simple-page">
+<article class="simple-page about-page">
     <p class="eyebrow">关于</p>
-    <h1>你好，我是 Rainzk。</h1>
-    <p>这是我的个人博客，用来记录生活、整理思绪，也保存一些不想被时间冲淡的片段。</p>
-    <p>这里的文字可能关于日常、阅读、技术或某个突然出现的念头。内容会慢慢生长，这段介绍也会随着时间改变。</p>
-    <p class="muted">你可以直接编辑 <code>templates/blog/about.html</code>，把这里替换成真正的自我介绍。</p>
+    <h1>你好，我是 {{ profile.name }}。</h1>
+    <p class="about-lead">{{ profile.lead }}</p>
+    {% for paragraph in profile.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+
+    <section class="about-section" aria-labelledby="about-topics">
+        <h2 id="about-topics">这里会写</h2>
+        <ul class="about-topics">
+            {% for topic in profile.topics %}<li>{{ topic }}</li>{% endfor %}
+        </ul>
+    </section>
+
+    {% if profile.links %}
+    <section class="about-section" aria-labelledby="about-links">
+        <h2 id="about-links">找到我</h2>
+        <ul class="about-links">
+            {% for link in profile.links %}<li><a href="{{ link.url }}" rel="me">{{ link.label }}</a></li>{% endfor %}
+        </ul>
+    </section>
+    {% endif %}
 </article>
 {% endblock %}

@@ -1,12 +1,18 @@
 {% extends "base.html" %}
 
 {% block title %}文章 · Rainzk{% endblock %}
+{% block meta_description %}浏览 Rainzk 的全部公开文章：日记、随笔，以及一些仍在生长的想法。{% endblock %}
 
 {% block content %}
 <header class="page-heading">
     <h1>文章</h1>
     <p>日记、随笔，以及一些未必成熟的想法。</p>
 </header>
+<form class="search-form" role="search" method="get" action="{% url 'blog:search' %}">
+    <label class="visually-hidden" for="article-search">搜索文章</label>
+    <input id="article-search" type="search" name="q" placeholder="搜索标题、摘要或正文" maxlength="100">
+    <button class="button" type="submit">搜索</button>
+</form>
 <div class="post-list">
     {% for post in page_obj %}
         {% include "blog/includes/post_item.html" %}

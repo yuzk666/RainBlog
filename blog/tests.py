@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import Category, Comment, Post, Tag
 
@@ -52,7 +55,7 @@ class BlogVisibilityTests(TestCase):
     def test_public_post_is_visible_to_visitor(self):
         response = self.client.get(self.public_post.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<h1>正文</h1>", html=True)
+        self.assertContains(response, '<h1 id="正文">正文</h1>', html=True)
 
     def test_private_post_is_hidden_from_visitor(self):
         response = self.client.get(self.private_post.get_absolute_url())
@@ -117,6 +120,135 @@ class ModelTests(TestCase):
         )
         self.assertEqual(post.slug, "第一篇文章")
         self.assertIsNotNone(post.published_at)
+
+    def test_reading_time_has_a_minimum_of_one_minute(self):
+        post = Post(title="短文", content="很短的一段话。")
+        self.assertEqual(post.reading_time, 1)
+
+
+class DiscoveryAndReadingTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(name="阅读", slug="reading")
+        cls.tag = Tag.objects.create(name="记忆", slug="memory")
+        now = timezone.now()
+        cls.older_post = Post.objects.create(
+            title="旧日记忆",
+            slug="older-memory",
+            summary="关于旧日时光",
+            content="## 起点\n\n一段关于旧日的文字。\n\n## 回望\n\n继续记录。",
+            category=cls.category,
+            status=Post.Status.PUBLISHED,
+            visibility=Post.Visibility.PUBLIC,
+            published_at=now - timedelta(days=2),
+        )
+        cls.older_post.tags.add(cls.tag)
+        cls.current_post = Post.objects.create(
+            title="被精选的文章",
+            slug="featured-memory",
+            summary="一篇首页精选文章",
+            content="## 相遇\n\n正文。\n\n### 后来\n\n仍有回声。",
+            category=cls.category,
+            is_featured=True,
+            status=Post.Status.PUBLISHED,
+            visibility=Post.Visibility.PUBLIC,
+            published_at=now - timedelta(days=1),
+        )
+        cls.current_post.tags.add(cls.tag)
+        cls.newer_post = Post.objects.create(
+            title="新的记录",
+            slug="newer-note",
+            content="正文里写着独特关键词星河。",
+            status=Post.Status.PUBLISHED,
+            visibility=Post.Visibility.PUBLIC,
+            published_at=now,
+        )
+        cls.private_post = Post.objects.create(
+            title="星河私密记录",
+            slug="private-search-result",
+            content="不应出现在公开搜索中。",
+            status=Post.Status.PUBLISHED,
+            visibility=Post.Visibility.PRIVATE,
+            published_at=now,
+        )
+
+    def test_featured_post_is_presented_once_on_homepage(self):
+        response = self.client.get(reverse("blog:home"))
+        self.assertEqual(response.context["featured_posts"], [self.current_post])
+        self.assertContains(response, self.current_post.title, count=1)
+        self.assertNotContains(response, self.private_post.title)
+
+    def test_search_matches_title_summary_and_content_without_leaking_private_posts(self):
+        title_response = self.client.get(reverse("blog:search"), {"q": "精选"})
+        summary_response = self.client.get(reverse("blog:search"), {"q": "旧日时光"})
+        content_response = self.client.get(reverse("blog:search"), {"q": "星河"})
+        self.assertContains(title_response, self.current_post.title)
+        self.assertContains(summary_response, self.older_post.title)
+        self.assertContains(content_response, self.newer_post.title)
+        self.assertNotContains(content_response, self.private_post.title)
+
+    def test_search_pagination_preserves_keyword(self):
+        for number in range(11):
+            Post.objects.create(
+                title=f"分页词 {number}",
+                slug=f"paged-{number}",
+                content="正文",
+                status=Post.Status.PUBLISHED,
+                visibility=Post.Visibility.PUBLIC,
+            )
+        response = self.client.get(reverse("blog:search"), {"q": "分页词"})
+        self.assertContains(response, "q=%E5%88%86%E9%A1%B5%E8%AF%8D")
+        self.assertContains(response, "page=2")
+
+    def test_detail_has_toc_neighbors_and_related_posts(self):
+        response = self.client.get(self.current_post.get_absolute_url())
+        self.assertEqual(response.context["previous_post"], self.older_post)
+        self.assertEqual(response.context["next_post"], self.newer_post)
+        self.assertIn(self.older_post, response.context["related_posts"])
+        self.assertContains(response, 'href="#相遇"')
+        self.assertContains(response, 'id="相遇"')
+
+    def test_article_has_canonical_and_open_graph_metadata(self):
+        response = self.client.get(self.current_post.get_absolute_url())
+        canonical = f'content="http://testserver{self.current_post.get_absolute_url()}"'
+        self.assertContains(response, canonical)
+        self.assertContains(response, 'property="og:type" content="article"')
+
+
+class SiteResourceTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.public_post = Post.objects.create(
+            title="订阅可见文章",
+            slug="feed-visible",
+            content="公开正文",
+            status=Post.Status.PUBLISHED,
+            visibility=Post.Visibility.PUBLIC,
+        )
+        cls.private_post = Post.objects.create(
+            title="订阅不可见文章",
+            slug="feed-private",
+            content="私密正文",
+            status=Post.Status.PUBLISHED,
+            visibility=Post.Visibility.PRIVATE,
+        )
+
+    def test_rss_contains_only_public_posts(self):
+        response = self.client.get(reverse("blog:feed"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["Content-Type"].startswith("application/rss+xml"))
+        self.assertContains(response, self.public_post.title)
+        self.assertNotContains(response, self.private_post.title)
+
+    def test_sitemap_contains_only_public_post_urls(self):
+        response = self.client.get(reverse("sitemap"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.public_post.get_absolute_url())
+        self.assertNotContains(response, self.private_post.get_absolute_url())
+
+    def test_robots_points_to_request_host_sitemap(self):
+        response = self.client.get(reverse("blog:robots_txt"))
+        self.assertContains(response, "Sitemap: http://testserver/sitemap.xml")
 
 
 class DashboardAndLoginTests(TestCase):
